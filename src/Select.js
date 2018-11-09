@@ -123,6 +123,8 @@ export type Props = {
   components: SelectComponentsConfig,
   /* Whether the value of the select, e.g. SingleValue, should be displayed in the control. */
   controlShouldRenderValue: boolean,
+  /* Allows you to mutate the display for the selected values */
+  customizeSelectedValues: any,
   /* Delimiter used to join multiple values into a single HTML Input value */
   delimiter?: string,
   /* Clear all values when the user presses escape AND the menu is closed */
@@ -236,6 +238,7 @@ export const defaultProps = {
   closeMenuOnScroll: false,
   components: {},
   controlShouldRenderValue: true,
+  customizeSelectedValues: (state: any) => state,
   escapeClearsValue: false,
   filterOption: createFilter(),
   formatGroupLabel: formatGroupLabel,
@@ -1388,6 +1391,7 @@ export default class Select extends Component<Props, State> {
     const { commonProps } = this;
     const {
       controlShouldRenderValue,
+      customizeSelectedValues,
       isDisabled,
       isMulti,
       inputValue,
@@ -1404,7 +1408,7 @@ export default class Select extends Component<Props, State> {
     }
 
     if (isMulti) {
-      const selectValues: Array<any> = selectValue.map(opt => {
+      const selectValues: Array<any> = customizeSelectedValues(selectValue).map(opt => {
         let isFocused = opt === focusedValue;
         return (
           <MultiValue
