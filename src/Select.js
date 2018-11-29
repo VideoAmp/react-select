@@ -118,7 +118,7 @@ export type Props = {
 
     If you only wish to restyle a component, we recommend using the `styles` prop
     instead. For a list of the components that can be passed in, and the shape
-    that will be passed to them, see [the components docs](/api#components)
+    that will be passed to them, see [the components docs](/components)
   */
   components: SelectComponentsConfig,
   /* Whether the value of the select, e.g. SingleValue, should be displayed in the control. */
@@ -131,7 +131,11 @@ export type Props = {
   escapeClearsValue: boolean,
   /* Custom method to filter whether an option should be displayed in the menu */
   filterOption: ((Object, string) => boolean) | null,
-  /* Formats group labels in the menu as React components */
+  /*
+    Formats group labels in the menu as React components
+
+    An example can be found in the [Replacing builtins](/advanced#replacing-builtins) documentation.
+  */
   formatGroupLabel: typeof formatGroupLabel,
   /* Formats option labels in the menu and control as React components */
   formatOptionLabel?: (OptionType, FormatOptionLabelMeta) => Node,
@@ -155,7 +159,11 @@ export type Props = {
   isDisabled: boolean,
   /* Is the select in a state of loading (async) */
   isLoading: boolean,
-  /* Override the built-in logic to detect whether an option is disabled */
+  /*
+    Override the built-in logic to detect whether an option is disabled
+
+    An example can be found in the [Replacing builtins](/advanced#replacing-builtins) documentation.
+  */
   isOptionDisabled: (OptionType, OptionsType) => boolean | false,
   /* Override the built-in logic to detect whether an option is selected */
   isOptionSelected?: (OptionType, OptionsType) => boolean,
@@ -178,7 +186,11 @@ export type Props = {
   menuPlacement: MenuPlacement,
   /* The CSS position value of the menu, when "fixed" extra layout management is required */
   menuPosition: MenuPosition,
-  /* Whether the menu should use a portal, and where it should attach */
+  /*
+    Whether the menu should use a portal, and where it should attach
+
+    An example can be found in the [Portaling](/advanced#portaling) documentation
+  */
   menuPortalTarget?: HTMLElement,
   /* Whether to block scroll events when the menu is open */
   menuShouldBlockScroll: boolean,
@@ -218,7 +230,11 @@ export type Props = {
   placeholder: string,
   /* Status to relay to screen readers */
   screenReaderStatus: ({ count: number }) => string,
-  /* Style modifier methods */
+  /*
+    Style modifier methods
+
+    A basic example can be found at the bottom of the [Replacing builtins](/advanced#replacing-builtins) documentation.
+  */
   styles: StylesConfig,
   /* Theme modifier method */
   theme?: ThemeConfig,
@@ -573,12 +589,16 @@ export default class Select extends Component<Props, State> {
       focusedValue: null,
     });
   }
+  onChange = (newValue: ValueType, actionMeta: ActionMeta) => {
+    const { onChange, name } = this.props;
+    onChange(newValue, { ...actionMeta, name });
+  };
   setValue = (
     newValue: ValueType,
     action: ActionTypes = 'set-value',
     option?: OptionType
   ) => {
-    const { closeMenuOnSelect, isMulti, onChange } = this.props;
+    const { closeMenuOnSelect, isMulti } = this.props;
     this.onInputChange('', { action: 'set-value' });
     if (closeMenuOnSelect) {
       this.inputIsHiddenAfterUpdate = !isMulti;
@@ -586,7 +606,7 @@ export default class Select extends Component<Props, State> {
     }
     // when the select value should change, we should reset focusedValue
     this.clearFocusValueOnUpdate = true;
-    onChange(newValue, { action, option });
+    this.onChange(newValue, { action, option });
   };
   selectOption = (newValue: OptionType) => {
     const { blurInputOnSelect, isMulti } = this.props;
@@ -624,10 +644,9 @@ export default class Select extends Component<Props, State> {
     }
   };
   removeValue = (removedValue: OptionType) => {
-    const { onChange } = this.props;
     const { selectValue } = this.state;
     const candidate = this.getOptionValue(removedValue);
-    onChange(selectValue.filter(i => this.getOptionValue(i) !== candidate), {
+    this.onChange(selectValue.filter(i => this.getOptionValue(i) !== candidate), {
       action: 'remove-value',
       removedValue,
     });
@@ -640,11 +659,10 @@ export default class Select extends Component<Props, State> {
     this.focusInput();
   };
   clearValue = () => {
-    const { isMulti, onChange } = this.props;
-    onChange(isMulti ? [] : null, { action: 'clear' });
+    const { isMulti } = this.props;
+    this.onChange(isMulti ? [] : null, { action: 'clear' });
   };
   popValue = () => {
-    const { onChange } = this.props;
     const { selectValue } = this.state;
     const lastSelectedValue = selectValue[selectValue.length - 1];
     this.announceAriaLiveSelection({
@@ -655,7 +673,7 @@ export default class Select extends Component<Props, State> {
           : undefined,
       },
     });
-    onChange(selectValue.slice(0, selectValue.length - 1), {
+    this.onChange(selectValue.slice(0, selectValue.length - 1), {
       action: 'pop-value',
       removedValue: lastSelectedValue,
     });
@@ -871,7 +889,10 @@ export default class Select extends Component<Props, State> {
     } else if (!this.props.menuIsOpen) {
       this.openMenu('first');
     } else {
-      this.onMenuClose();
+      // $FlowFixMe HTMLElement type does not have tagName property
+      if (event.target.tagName !== 'INPUT') {
+        this.onMenuClose();
+      }
     }
     // $FlowFixMe HTMLElement type does not have tagName property
     if (event.target.tagName !== 'INPUT') {
@@ -1046,6 +1067,10 @@ export default class Select extends Component<Props, State> {
     this.openAfterFocus = false;
   };
   onInputBlur = (event: SyntheticFocusEvent<HTMLInputElement>) => {
+    if(this.menuListRef && this.menuListRef.contains(document.activeElement)) {
+      this.inputRef.focus();
+      return;
+    }
     if (this.props.onBlur) {
       this.props.onBlur(event);
     }
@@ -1119,7 +1144,11 @@ export default class Select extends Component<Props, State> {
           this.removeValue(focusedValue);
         } else {
           if (!backspaceRemovesValue) return;
-          this.popValue();
+          if (isMulti) {
+            this.popValue();
+          } else if (isClearable) {
+            this.clearValue();
+          }
         }
         break;
       case 'Tab':
@@ -1341,6 +1370,7 @@ export default class Select extends Component<Props, State> {
           onChange={noop}
           onFocus={this.onInputFocus}
           readOnly
+          disabled={isDisabled}
           tabIndex={tabIndex}
           value=""
         />
@@ -1397,11 +1427,16 @@ export default class Select extends Component<Props, State> {
       inputValue,
       placeholder,
     } = this.props;
-    const { selectValue, focusedValue } = this.state;
+    const { selectValue, focusedValue, isFocused } = this.state;
 
     if (!this.hasValue() || !controlShouldRenderValue) {
       return inputValue ? null : (
-        <Placeholder {...commonProps} key="placeholder" isDisabled={isDisabled}>
+        <Placeholder 
+          {...commonProps} 
+          key="placeholder"
+          isDisabled={isDisabled}
+          isFocused={isFocused}
+        >
           {placeholder}
         </Placeholder>
       );
